@@ -1,0 +1,90 @@
+# ============================================================
+# opnsense-ips-sqli-001: IPS - SQL Injection Attempt
+# ============================================================
+name: OPNsense - IPS SQL Injection Attempt
+type: any
+
+index: opnsense-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+timeframe:
+  minutes: 10
+
+filter:
+  - query:
+      query_string:
+        query: 'event.module: "suricata" AND (rule.name: *SQL* OR rule.name: *sqli* OR rule.name: *UNION* OR rule.category: "Web Application Attack")'
+
+
+alert:
+  - email
+  - telegram
+  - slack
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"
+telegram_room_id: "${TELEGRAM_CHAT_ID}"
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "danger"
+
+alert_subject: "[HIGH] SQL Injection Attempt Detected - {0}"
+alert_subject_args:
+  - source.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - source.ip
+  - destination.ip
+  - destination.port
+  - rule.name
+  - "@timestamp"
+
+alert_text: |
+  🔴 SOC ALERT: SQL INJECTION ATTEMPT
+  ════════════════════════════════════
+  Rule      : OPNsense - IPS SQL Injection Attempt
+  Risk Score: 73 / 100 | Severity: HIGH
+  ────────────────────────────────────
+  Source IP  : {0}
+  Target IP  : {1}
+  Target Port: {2}
+  Signature  : {3}
+  Timestamp  : {4}
+  ────────────────────────────────────
+  MITRE ATT&CK: T1190 (Exploit Public-Facing Application)
+  ────────────────────────────────────
+  RESPONSE STEPS:
+  1. Check source.ip against VirusTotal / AbuseIPDB
+  2. If destination.port is 80, Apache is the target
+  3. Review rule.name to confirm SQLi vector
+  4. Check Apache access logs: /var/log/apache2/access.log
+  5. Block source IP if confirmed malicious
+
+realert:
+  minutes: 45
+
+exponential_realert:
+  hours: 4

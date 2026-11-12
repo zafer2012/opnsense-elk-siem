@@ -1,0 +1,98 @@
+name: OPNsense - Port Scan Detection
+type: cardinality
+index: opnsense-syslog-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+
+max_cardinality: 15
+cardinality_field: destination.port
+query_key: source.ip
+
+timeframe:
+  minutes: 2
+
+filter:
+  - query:
+      query_string:
+        query: >
+          event.dataset:"opnsense.filterlog"
+          AND event.outcome:"failure"
+          AND network.direction:"in"
+          AND source.ip:*
+          AND destination.port:*
+          AND NOT source.ip:(
+            10.0.0.0/8
+            OR 172.16.0.0/12
+            OR 192.168.0.0/16
+            OR 127.0.0.0/8
+            OR 169.254.0.0/16
+            OR ::1
+            OR fc00::/7
+          )
+
+alert:
+  - email
+  - telegram
+  - slack
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"
+telegram_room_id: "${TELEGRAM_CHAT_ID}"
+
+
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "good"
+
+alert_subject: "[MEDIUM] Port Scan Detected - {0}"
+alert_subject_args:
+  - source.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - source.ip
+  - cardinality_count
+#  - "@timestamp"
+  - match_time
+
+alert_text: |
+  🟡 SOC ALERT: PORT SCAN
+  ════════════════════════════════════
+  Rule      : OPNsense - Port Scan Detection
+  Risk Score: 65 / 100 | Severity: MEDIUM
+  ────────────────────────────────────
+  Source IP       : {0}
+  Ports Scanned   : {1}
+  Timestamp       : {2}
+  ────────────────────────────────────
+  MITRE ATT&CK: T1046 / T1595
+  ────────────────────────────────────
+  RESPONSE STEPS:
+  1. List the targeted services
+  2. Check for allow connections after the scan
+  3. Temporarily block source IP on firewall
+
+realert:
+  minutes: 120

@@ -1,0 +1,100 @@
+name: OPNsense - Suspicious DNS Activity (Beaconing/DGA)
+type: cardinality
+index: opnsense-other-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+timeframe:
+  minutes: 15
+
+cardinality_field: dns.question.name.keyword
+min_cardinality: 100
+
+query_key: source.ip
+
+filter:
+  - bool:
+      must:
+        - query_string:
+            query: '_exists_:dns.question.name AND event.dataset:"opnsense.unbound"'
+        - query_string:
+            query: 'dns.response_code:"NXDOMAIN"'
+      must_not:
+        - terms:
+            source.ip:
+              - "8.8.8.8"
+              - "8.8.4.4"
+              - "1.1.1.1"
+              - "1.0.0.1"
+              - "9.9.9.9"
+              - "208.67.222.222"
+
+top_count_keys:
+  - dns.question.name.keyword
+top_count_number: 20
+
+alert:
+  - email
+  - telegram
+  - slack
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: ${TELEGRAM_BOT_TOKEN}
+telegram_room_id: ${TELEGRAM_CHAT_ID}
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "warning"
+
+alert_subject: "[MEDIUM] DNS Beaconing / DGA Suspected - {0}"
+alert_subject_args:
+  - source.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - source.ip
+  - cardinality_count
+  - "@timestamp"
+
+alert_text: |
+  🟡 SOC ALERT: DNS BEACONING / DGA
+  ════════════════════════════════════════════
+  Rule       : OPNsense - Suspicious DNS Activity
+  SIEM Rule  : antikor-dns-beaconing-v1
+  Risk Score : 60 / 100 | Severity: MEDIUM
+  ────────────────────────────────────────────
+  Source IP        : {0}
+  Unique DNS Names : {1} (threshold: 100 / 15 min)
+  Timestamp        : {2}
+  ────────────────────────────────────────────
+  MITRE ATT&CK: T1071.004 (Application Layer Protocol: DNS)
+  Tactic      : TA0011 Command and Control
+  ────────────────────────────────────────────
+  RESPONSE STEPS:
+  1. Consider isolating source host
+  2. Check top queried domains against VirusTotal / Umbrella / Quad9
+  3. Analyze NXDOMAIN ratio (high ratio = DGA indicator)
+  4. Perform process/network connection analysis on source host
+
+realert:
+  minutes: 30
