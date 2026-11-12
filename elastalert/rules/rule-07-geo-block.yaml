@@ -1,0 +1,83 @@
+# ============================================================
+# rule-07: Access from High-Risk Country Detection
+# ============================================================
+name: OPNsense - Access from High-Risk Country
+type: any
+index: opnsense-syslog-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+filter:
+  - query:
+      query_string:
+        query: 'event.dataset:"opnsense.filterlog" AND event.action:"block" AND source.geo.country_iso_code:(RU OR CN OR IR OR KP OR BY OR SY OR NG OR PK)'
+
+alert:
+  - email
+  - telegram
+  - slack
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: ${TELEGRAM_BOT_TOKEN}
+telegram_room_id: ${TELEGRAM_CHAT_ID}
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "good"
+
+alert_subject: "[MEDIUM] High-Risk Country Access - {0} / {1}"
+alert_subject_args:
+  - source.geo.country_name
+  - source.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - source.ip
+  - source.geo.country_name
+  - source.geo.country_iso_code
+  - destination.ip
+  - destination.port
+  - "@timestamp"
+
+alert_text: |
+  🟡 SOC ALERT: HIGH-RISK COUNTRY ACCESS
+  ════════════════════════════════════
+  Rule      : Access from High-Risk Country
+  Risk Score: 60 / 100 | Severity: MEDIUM
+  ────────────────────────────────────
+  Source IP      : {0}
+  Source Country : {1} ({2})
+  Target IP      : {3}
+  Target Port    : {4}
+  Timestamp      : {5}
+  ────────────────────────────────────
+  MITRE ATT&CK: T1133 (External Remote Services)
+  ────────────────────────────────────
+  RESPONSE STEPS:
+  1. If event.action is "allow" — critical, investigate immediately!
+  2. Check VirusTotal / Shodan / Greynoise
+  3. If legitimate, add to exceptions list
+  4. Review firewall geo-blocking policy
+
+realert:
+  hours: 4

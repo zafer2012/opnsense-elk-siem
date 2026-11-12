@@ -1,0 +1,99 @@
+# ============================================================
+# rule-08: IPS Port Scan Detection
+# ============================================================
+name: OPNsense - IPS Port Scan Detection
+type: frequency
+index: opnsense-suricata-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+num_events: 5
+timeframe:
+  minutes: 2
+
+query_key:
+  - source.ip
+
+filter:
+  - bool:
+      must:
+        - query_string:
+            query: >
+              event.category:"intrusion_detection"
+              AND (suricata.eve.alert.category:"Attempted Information Leak"
+                   OR suricata.eve.alert.signature:"ET SCAN*"
+                   OR message:"portscan"
+                   OR rule.name:"(port_scan)")
+      must_not:
+        - prefix:
+            source.ip: "193.255."
+
+alert:
+  - email
+  - telegram
+  - slack
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: ${TELEGRAM_BOT_TOKEN}
+telegram_room_id: ${TELEGRAM_CHAT_ID}
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "good"
+
+alert_subject: "[MEDIUM] IPS Port Scan Detected - {0}"
+alert_subject_args:
+  - source.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - source.ip
+  - num_matches
+  - "@timestamp"
+
+alert_text: |
+  🟡 SOC ALERT: IPS PORT SCAN
+  ════════════════════════════════════
+  Rule       : OPNsense - IPS Port Scan Detection
+  SIEM Rule  : antikor-ips-portscan-v2
+  Risk Score : 70 / 100 | Severity: MEDIUM
+  ────────────────────────────────────
+  Source IP  : {0}
+  Event Count: {1}
+  Timestamp  : {2}
+  ────────────────────────────────────
+  IPS Detection: Suricata intrusion_detection / portscan
+  Excluded Block: 193.255.0.0/16
+  ────────────────────────────────────
+  MITRE ATT&CK: T1046 (Network Service Discovery)
+               T1595 (Active Scanning)
+  Tactic      : TA0043 Reconnaissance
+  ────────────────────────────────────
+  RESPONSE STEPS:
+  1. Verify whether source IP is an authorized vulnerability scanner
+  2. Check VirusTotal / Shodan / Greynoise
+  3. Review allow connections following the scan
+  4. Temporarily block source IP on firewall if malicious
+
+realert:
+  hours: 2

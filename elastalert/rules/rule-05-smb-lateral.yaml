@@ -1,0 +1,96 @@
+# ============================================================
+# rule-05: SMB Lateral Movement / Ransomware Detection
+# ============================================================
+
+name: OPNsense - SMB Lateral Movement / Ransomware
+type: cardinality
+index: opnsense-syslog-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+timeframe:
+  minutes: 2
+
+cardinality_field: destination.ip.keyword
+min_cardinality: 5
+
+query_key: source.ip
+
+filter:
+  - query:
+      query_string:
+        query: "destination.port:445 AND event.action:(allow OR permit OR pass)"
+
+top_count_keys:
+  - destination.ip.keyword
+
+top_count_number: 10
+
+alert:
+  - email
+  - telegram
+  - slack
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: ${TELEGRAM_BOT_TOKEN}
+telegram_room_id: ${TELEGRAM_CHAT_ID}
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "danger"
+
+alert_subject: "[CRITICAL] SMB Lateral Movement / Ransomware Indicator - {0}"
+alert_subject_args:
+  - source.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - source.ip
+  - cardinality_count
+  - "@timestamp"
+
+alert_text: |
+  🔴 SOC ALERT: SMB LATERAL MOVEMENT
+  ════════════════════════════════════
+  Rule      : OPNsense - SMB Lateral Movement / Ransomware
+  Risk Score: 80 / 100 | Severity: HIGH
+  ────────────────────────────────────
+  Source IP        : {0}
+  Port             : 445 (SMB)
+  Targets Reached  : {1}
+  Timestamp        : {2}
+  ────────────────────────────────────
+  MITRE ATT&CK: T1021.002 / T1486
+  ⚠️ POSSIBLE RANSOMWARE SPREADING!
+  ────────────────────────────────────
+  RESPONSE STEPS:
+  1. Isolate source host immediately
+  2. Check SMB shares for tampering
+  3. Search for encrypted file extensions
+  4. Verify backup integrity
+
+realert:
+  minutes: 10
+  
+exponential_realert:
+  hours: 1

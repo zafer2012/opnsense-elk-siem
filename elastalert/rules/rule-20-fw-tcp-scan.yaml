@@ -1,0 +1,92 @@
+# ============================================================
+# rule-20:  Firewall - Suspicious TCP Scan Flags
+# ============================================================
+name: OPNsense - Firewall Suspicious TCP Scan Flags
+type: any
+
+index: opnsense-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+timeframe:
+  minutes: 5
+
+filter:
+  - query:
+      query_string:
+        query: 'event.module: "opnsense" AND (tags: "tcp_null_scan" OR tags: "tcp_fin_scan" OR tags: "tcp_xmas_scan")'
+
+alert:
+  - email
+  - slack
+  - telegram
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"
+telegram_room_id: "${TELEGRAM_CHAT_ID}"
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":satellite:"
+slack_msg_color: "warning"
+
+alert_subject: "[MEDIUM] Suspicious TCP Scan Flags Detected - {0}"
+alert_subject_args:
+  - source.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - source.ip
+  - destination.ip
+  - tags
+  - "@timestamp"
+
+alert_text: |
+  🟡 SOC ALERT: SUSPICIOUS TCP SCAN FLAGS
+  ════════════════════════════════════
+  Rule      : OPNsense - Firewall Suspicious TCP Scan Flags
+  Risk Score: 47 / 100 | Severity: MEDIUM
+  ────────────────────────────────────
+  Source     : filterlog (pf firewall + Logstash tcp_flags analysis)
+  Source IP  : {0}
+  Target IP  : {1}
+  Scan Type  : {2}
+  Timestamp  : {3}
+  ────────────────────────────────────
+  SCAN FLAG REFERENCE:
+    NULL Scan : TCP flags = 0x000 (no flags set)
+    FIN Scan  : TCP flags = 0x001 (only FIN set)
+    XMAS Scan : TCP flags = 0x029 (FIN+PSH+URG set)
+  ────────────────────────────────────
+  MITRE ATT&CK: T1595 (Active Scanning) | TA0043 (Reconnaissance)
+  ────────────────────────────────────
+  RESPONSE STEPS:
+  1. Verify if scan is from an authorized penetration test
+  2. Check Logstash tags field for scan type confirmation
+  3. Correlate with other scan events from same source.ip
+  4. Block source IP if unauthorized scan confirmed
+
+realert:
+  minutes: 30
+
+exponential_realert:
+  hours: 4

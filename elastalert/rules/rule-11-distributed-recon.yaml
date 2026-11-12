@@ -1,0 +1,105 @@
+# ============================================================
+# rule-11: Distributed Reconnaissance Detection
+# ============================================================
+name: OPNsense - Distributed Reconnaissance Detection
+type: cardinality
+index: opnsense-suricata-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+timeframe:
+  minutes: 5
+
+cardinality_field: source.ip
+min_cardinality: 50
+
+query_key: destination.ip
+
+filter:
+  - bool:
+      must:
+        - query_string:
+            query: >
+              event.category:"intrusion_detection"
+              AND network.transport:"tcp"
+              AND (suricata.eve.alert.category:"Attempted Information Leak"
+                   OR suricata.eve.alert.signature:"ET SCAN*"
+                   OR suricata.eve.event_type:"drop")
+
+top_count_keys:
+  - source.ip
+top_count_number: 20
+
+alert:
+  - email
+  - telegram
+  - slack
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: ${TELEGRAM_BOT_TOKEN}
+telegram_room_id: ${TELEGRAM_CHAT_ID}
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "warning"
+
+alert_subject: "[HIGH] Distributed Reconnaissance Detected - Target: {0}"
+alert_subject_args:
+  - destination.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - destination.ip
+  - cardinality_count
+  - "@timestamp"
+
+alert_text: |
+  🟠 SOC ALERT: DISTRIBUTED RECONNAISSANCE
+  ════════════════════════════════════════════
+  Rule       : OPNsense - Distributed Reconnaissance Detection
+  SIEM Rule  : antikor-distributed-recon-v2
+  Risk Score : 80 / 100 | Severity: HIGH
+  ────────────────────────────────────────────
+  Target IP        : {0}
+  Distinct Sources : {1} (threshold: 50 / 5 min)
+  Timestamp        : {2}
+  ────────────────────────────────────────────
+  Protocol : TCP | Source: Suricata IDS/IPS
+  ────────────────────────────────────────────
+  MITRE ATT&CK: T1046 (Network Service Discovery)
+  Tactic      : TA0043 Reconnaissance
+  ────────────────────────────────────────────
+  ⚠️  POSSIBLE COORDINATED BOTNET SCAN
+  ────────────────────────────────────────────
+  RESPONSE STEPS:
+  1. Identify services exposed by the target IP
+  2. Group source IPs by ASN / country
+  3. Review allow connections to target IP
+  4. Verify patch/hardening status on target
+  5. Evaluate geo-blocking policy
+
+realert:
+  hours: 1
+
+exponential_realert:
+  hours: 4

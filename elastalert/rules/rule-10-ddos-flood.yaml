@@ -1,0 +1,106 @@
+# ============================================================
+# rule-10: DDoS Flood Detection
+# ============================================================
+name: OPNsense - DDoS Flood Detection
+type: cardinality
+index: opnsense-suricata-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+timeframe:
+  minutes: 1
+
+cardinality_field: source.ip
+min_cardinality: 200
+
+query_key: destination.ip
+
+filter:
+  - bool:
+      must:
+        - query_string:
+            query: >
+              event.category:"intrusion_detection"
+              AND network.transport:"tcp"
+              AND network.direction:"inbound"
+              AND (suricata.eve.alert.category:"Attempted Denial of Service"
+                   OR suricata.eve.alert.signature:"ET DOS*"
+                   OR suricata.eve.event_type:"drop")
+
+top_count_keys:
+  - source.ip
+top_count_number: 20
+
+
+alert:
+  - email
+  - telegram
+  - slack
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: ${TELEGRAM_BOT_TOKEN}
+telegram_room_id: ${TELEGRAM_CHAT_ID}
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "danger"
+
+alert_subject: "[CRITICAL-URGENT] DDoS Flood Detected - Target: {0}"
+alert_subject_args:
+  - destination.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - destination.ip
+  - cardinality_count
+  - "@timestamp"
+
+alert_text: |
+  🆘 URGENT: DDoS FLOOD ALERT
+  ════════════════════════════════════════════
+  Rule       : OPNsense - DDoS Flood Detection
+  SIEM Rule  : antikor-ddos-v4
+  Risk Score : 90 / 100 | Severity: CRITICAL
+  ────────────────────────────────────────────
+  Target IP        : {0}
+  Distinct Sources : {1} (threshold: 200 / 1 min)
+  Timestamp        : {2}
+  ────────────────────────────────────────────
+  Protocol : TCP (Inbound Flood)
+  Source   : Suricata drop/IDS alert
+  ────────────────────────────────────────────
+  MITRE ATT&CK: T1498 / T1499
+  Tactic      : TA0040 Impact
+  ────────────────────────────────────────────
+  URGENT RESPONSE STEPS:
+  1. Identify the affected service (port/protocol)
+  2. Contact ISP / DDoS scrubbing service
+  3. Apply rate-limiting / connection-limit on firewall
+  4. Evaluate BGP blackhole routing
+  5. Notify NOC and management
+
+realert:
+  minutes: 15
+
+exponential_realert:
+  hours: 2

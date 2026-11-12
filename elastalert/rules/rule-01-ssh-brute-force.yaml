@@ -1,0 +1,92 @@
+# ============================================================
+# opnsense-rule-01: SSH Brute Force
+# ============================================================
+name: OPNsense - SSH Brute Force Attack
+type: frequency
+
+index: opnsense-syslog-*
+
+es_host: localhost
+es_port: 9200
+use_ssl: true
+verify_certs: true
+ca_certs: /etc/elastalert/certs/ca.crt
+es_username: ${ELASTIC_USER}
+es_password: ${ELASTIC_PASS}
+
+num_events: 10
+timeframe:
+  minutes: 5
+
+filter:
+  - query:
+      query_string:
+        query: 'destination.port: (22 OR 2222) AND (event.action: "deny" OR event.action: "block" OR event.action: "allow")'
+
+query_key:
+  - source.ip.keyword
+  - destination.ip.keyword
+
+alert:
+  - email
+  - slack
+  - telegram
+
+# Email settings
+email:
+  - "yourname@yourcompany.com"
+
+from_addr: elastalert@yourcompany.com
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_auth_file: /etc/elastalert/smtp_auth.yaml
+smtp_ssl: false
+smtp_starttls: true
+
+# Telegram settings
+telegram_bot_token: "${TELEGRAM_BOT_TOKEN}"
+telegram_room_id: "${TELEGRAM_CHAT_ID}"
+
+# Slack settings
+slack_webhook_url: ${SLACK_WEBHOOK_URL}
+slack_channel_override: "#soc-alerts"
+slack_username_override: "OPNsense SOC Bot"
+slack_emoji_override: ":rotating_light:"
+slack_msg_color: "warning"
+
+alert_subject: "[HIGH] SSH Brute Force Detected - {0}"
+alert_subject_args:
+  - source.ip
+
+alert_text_type: alert_text_only
+alert_text_args:
+  - source.ip
+  - destination.ip
+  - num_matches
+  - "@timestamp"
+
+alert_text: |
+  🔴 SOC ALERT: SSH BRUTE FORCE
+  ════════════════════════════════════
+  Rule      : OPNsense - SSH Brute Force Attack
+  Risk Score: 73 / 100 | Severity: HIGH
+  ────────────────────────────────────
+  Source IP : {0}
+  Target IP : {1}
+  Port      : 22 (SSH)
+  Event Count: {2}
+  Timestamp : {3}
+  ────────────────────────────────────
+  MITRE ATT&CK: T1110.001 (Password Guessing)
+  ────────────────────────────────────
+  RESPONSE STEPS:
+  1. Check source.ip against VirusTotal / AbuseIPDB
+  2. Filter for event.action: allow to find successful attempts
+  3. Block source IP on firewall if malicious
+  4. If successful SSH found, review /var/log/auth.log
+
+realert:
+  minutes: 45
+
+exponential_realert:
+  hours: 4
