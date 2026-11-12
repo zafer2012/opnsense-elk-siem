@@ -1,0 +1,129 @@
+# ============================================================
+# OPNsense ELK SIEM — System and Software Requirements
+# ============================================================
+# This file lists all software dependencies and version
+# requirements for the SIEM architecture.
+# It is informational — packages are installed automatically
+# by the provided Bash scripts (install/elk_install.sh and
+# install/elastalert_install.sh).
+# ============================================================
+
+# ------------------------------------------------------------
+# HOST OPERATING SYSTEM
+# ------------------------------------------------------------
+# Ubuntu Server 24.04 LTS (Noble Numbat)
+# Minimum hardware: 4 vCPU, 8 GB RAM, 50 GB disk
+# Recommended:      8 vCPU, 16 GB RAM, 200 GB disk (production)
+
+# ------------------------------------------------------------
+# ELK STACK (installed via Elastic APT repository)
+# ------------------------------------------------------------
+elasticsearch==9.x        # Distributed search and analytics engine
+kibana==9.x               # Data visualization and SIEM dashboard
+logstash==9.x             # Log ingestion, parsing, and enrichment
+
+# ------------------------------------------------------------
+# ELASTALERT2 (installed via Python pip in virtualenv)
+# ------------------------------------------------------------
+elastalert2>=2.0.0        # Rule-based alerting framework
+# Python >= 3.9 required (tested with Python 3.11)
+
+# Python dependencies installed automatically by elastalert2:
+# elasticsearch-py>=8.0.0
+# python-dateutil>=2.8.0
+# PyYAML>=5.4.0
+# requests>=2.26.0
+# jinja2>=3.0.0
+# croniter>=1.3.0
+# apscheduler>=3.9.0
+
+# ------------------------------------------------------------
+# GEOLITE2 DATABASE
+# ------------------------------------------------------------
+# GeoLite2-City.mmdb (MaxMind)
+# License: CC BY-SA 4.0
+# Requires free MaxMind account for download:
+# https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+#
+# Place the database file at:
+# /usr/share/GeoIP/GeoLite2-City.mmdb
+
+# ------------------------------------------------------------
+# SYSTEM PACKAGES (Ubuntu apt)
+# ------------------------------------------------------------
+# The install script installs these automatically:
+#
+# curl
+# wget
+# gnupg
+# apt-transport-https
+# ca-certificates
+# software-properties-common
+# openssl
+# ufw
+# netcat-openbsd            # Required by opnsense-attack-tests.sh
+# python3
+# python3-pip
+# python3-venv
+# bc                        # Required by latency measurement scripts
+
+# ------------------------------------------------------------
+# OPNSENSE FIREWALL (separate appliance)
+# ------------------------------------------------------------
+# OPNsense >= 26.x
+# BSD 2-Clause License
+# https://opnsense.org
+#
+# Required plugins/services:
+#   - Suricata IDS/IPS (built-in, Services > Intrusion Detection)
+#   - Emerging Threats Open ruleset (ET Open)
+#   - Remote syslog forwarding (System > Settings > Logging > Remote)
+
+# ------------------------------------------------------------
+# NOTIFICATION CHANNEL PREREQUISITES
+# ------------------------------------------------------------
+# Email (SMTP):
+#   - SMTP server with STARTTLS support (e.g., Gmail, institutional SMTP)
+#   - App password or SMTP credentials stored in:
+#     /etc/elastalert/smtp_auth.yaml
+#
+# Telegram:
+#   - Telegram Bot created via @BotFather
+#   - Bot token: ${TELEGRAM_BOT_TOKEN}
+#   - Chat/channel ID: ${TELEGRAM_CHAT_ID}
+#
+# Slack:
+#   - Slack workspace with incoming webhook enabled
+#   - Webhook URL: ${SLACK_WEBHOOK_URL}
+#   - https://api.slack.com/messaging/webhooks
+
+# ------------------------------------------------------------
+# OPTIONAL: ATTACK SIMULATION (separate Kali Linux machine)
+# ------------------------------------------------------------
+# Kali Linux (latest rolling release)
+# Tools used in validation:
+#   nmap          >= 7.x    # Port scanning and service detection
+#   hydra         >= 9.x    # Credential brute force
+#   nikto         >= 2.x    # Web application vulnerability scanner
+#   metasploit-framework    # Exploitation framework
+#   netcat (nc)             # Manual connection testing
+#
+# Target: Metasploitable 2 (VMware image)
+# https://sourceforge.net/projects/metasploitable/
+
+# ------------------------------------------------------------
+# VIRTUALIZATION (lab environment only)
+# ------------------------------------------------------------
+# VMware Workstation Pro 17.x (or VMware Player / ESXi)
+# VirtualBox >= 7.x is a free alternative for lab use
+
+# ------------------------------------------------------------
+# VERSION COMPATIBILITY NOTES
+# ------------------------------------------------------------
+# - Elasticsearch 9.x requires Java 21+ (bundled, no separate install needed)
+# - ElastAlert2 2.x requires Python 3.9–3.11
+# - OPNsense syslog must use RFC 5424 format for correct pipeline parsing
+# - ECS v9 field mapping assumed; earlier ECS versions may require
+#   adjustments to the Logstash mutate/rename filters in opnsense.conf
+# - GeoLite2-City database should be updated monthly for accuracy
+#   (use MaxMind's geoipupdate tool for automated updates)
